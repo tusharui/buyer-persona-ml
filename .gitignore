@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project artifacts
+models/*.npy
+models/*.pkl
+data/processed/*.csv
+reports/*.csv
+reports/*.json
+reports/*.pdf
+
+# Keep raw data
+!data/raw/*.csv
