@@ -24,6 +24,9 @@ generate-data:
 feature-store:
 	python -m src.feature_store
 
+run-api:
+	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
 docker-build:
 	docker build -t buyer-persona-ml .
 
