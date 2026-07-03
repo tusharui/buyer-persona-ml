@@ -18,6 +18,9 @@ predict:
 db-check:
 	python -c "import asyncio; from src.database import check_health; print('DB healthy:', asyncio.run(check_health()))"
 
+generate-data:
+	python -m src.data_generator --clear
+
 docker-build:
 	docker build -t buyer-persona-ml .
 
