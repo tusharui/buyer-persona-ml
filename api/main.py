@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.schemas import HealthResponse
 from api.dependencies import model_loader
+from api.routes.predict import router as predict_router
 from src.database import check_health as check_db_health, close as close_db
 from src.cache import cache
 
@@ -37,6 +38,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(predict_router)
 
 
 @app.get("/health", response_model=HealthResponse)
