@@ -1,5 +1,3 @@
-"""Customer feature engineering — RFM + behavioral features."""
-
 import pandas as pd
 import numpy as np
 

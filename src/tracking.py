@@ -1,5 +1,3 @@
-"""Experiment tracking — lightweight JSON logger."""
-
 import json
 import datetime
 from pathlib import Path
@@ -7,8 +5,6 @@ from src.config import REPORTS_DIR
 
 
 class ExperimentLogger:
-    """Logs pipeline params and metrics to a JSON file."""
-
     def __init__(self, name="pipeline", save_dir=None):
         self.save_dir = Path(save_dir or REPORTS_DIR)
         self.save_dir.mkdir(parents=True, exist_ok=True)

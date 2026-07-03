@@ -1,4 +1,4 @@
-.PHONY: setup test run docker-build docker-run clean
+.PHONY: setup test run docker-build docker-run clean db-check redis-check
 
 setup:
 	pip install -r requirements.txt
@@ -14,6 +14,9 @@ pipeline:
 
 predict:
 	python src/predict.py --input data/raw/transactions.csv --output predictions.csv
+
+db-check:
+	python -c "import asyncio; from src.database import check_health; print('DB healthy:', asyncio.run(check_health()))"
 
 docker-build:
 	docker build -t buyer-persona-ml .

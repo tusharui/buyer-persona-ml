@@ -1,12 +1,6 @@
-"""
-End-to-end pipeline: raw transactions → clustered personas + saved models.
-Run: python -m src.pipeline
-"""
-
 import sys
 from pathlib import Path
 
-# Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
@@ -40,7 +34,6 @@ def run_pipeline():
     print("BUYER PERSONA ML — FULL PIPELINE")
     print("=" * 60)
 
-    # 1. Load & clean
     print("\n[1/7] Loading raw data...")
     df = load_raw_data()
     logger.log_param("raw_rows", len(df))
@@ -51,7 +44,6 @@ def run_pipeline():
     print(f"  Cleaned: {df.shape}")
     logger.log_param("cleaned_rows", len(df))
 
-    # 2. Feature engineering
     print("\n[2/7] Building customer features...")
     cust = build_customer_features(df)
     print(f"  Customers: {cust.shape}")
@@ -60,7 +52,6 @@ def run_pipeline():
     cust.to_csv(PROCESSED_FILES["features"], index=False)
     logger.log_artifact(str(PROCESSED_FILES["features"]))
 
-    # 3. Scale
     print("\n[3/7] Scaling features...")
     scale_cols = [c for c in FEATURE_COLS if c in cust.columns]
     cust_scaled, scaler = scale_features(cust.copy(), scale_cols,
@@ -70,15 +61,12 @@ def run_pipeline():
     logger.log_artifact(str(MODEL_FILES["scaler"]))
     print(f"  Scaler saved: {MODEL_FILES['scaler']}")
 
-    # 4. Feature selection (automated)
     print("\n[4/7] Selecting features...")
     auto_drop = select_features_by_correlation(cust_scaled, scale_cols)
-    # Always keep these core RFM + behavioral regardless
     keep_cols = ["Recency", "Frequency", "Monetary", "AvgBasketSize",
                  "PurchaseInterval", "WeekendRatio", "NightRatio",
                  "DiscountUsage", "ReturnRate", "ProductDiversity"]
     final_cols = [c for c in keep_cols if c in cust_scaled.columns]
-    # Remove any that were auto-flagged for dropping, except core RFM
     final_cols = [c for c in final_cols if c not in auto_drop or c in
                   ("Recency", "Frequency", "Monetary")]
     final_cols = sorted(set(final_cols))
@@ -92,14 +80,12 @@ def run_pipeline():
     joblib.dump(final_cols, MODEL_FILES["selected_features"])
     logger.log_artifact(str(MODEL_FILES["selected_features"]))
 
-    # 5. Hold-out split for stability validation
     print("\n[5/7] Hold-out split (stability check)...")
     X_train, X_hold = train_test_split(X, test_size=TEST_HOLDOUT_SIZE,
                                         random_state=RANDOM_STATE)
     print(f"  Train: {X_train.shape}, Hold-out: {X_hold.shape}")
     logger.log_param("holdout_size", TEST_HOLDOUT_SIZE)
 
-    # 6. PCA
     print("\n[6/7] PCA + clustering...")
     pca = PCA(n_components=PCA_VARIANCE_TARGET, random_state=RANDOM_STATE)
     X_pca = pca.fit_transform(X_train)
@@ -111,11 +97,9 @@ def run_pipeline():
     joblib.dump(pca, MODEL_FILES["pca"])
     logger.log_artifact(str(MODEL_FILES["pca"]))
 
-    # Try multiple clustering approaches, pick the best
     print("\n[6b/7] Comparing clustering algorithms...")
     approaches = {}
 
-    # 1. KMeans on PCA (default)
     labels_pca, km_pca = kmeans_fit(X_pca, KMEANS_K)
     approaches["KMeans+PCA"] = {
         "model": km_pca, "labels": labels_pca,
@@ -123,7 +107,6 @@ def run_pipeline():
         "db": davies_bouldin_score(X_pca, labels_pca),
     }
 
-    # 2. KMeans on original features (no PCA)
     labels_orig, km_orig = kmeans_fit(X_train, KMEANS_K)
     approaches["KMeans+Original"] = {
         "model": km_orig, "labels": labels_orig,
@@ -131,7 +114,6 @@ def run_pipeline():
         "db": davies_bouldin_score(X_train, labels_orig),
     }
 
-    # 3. Agglomerative on PCA
     agg = AgglomerativeClustering(n_clusters=KMEANS_K)
     labels_agg = agg.fit_predict(X_pca)
     approaches["Agglomerative+PCA"] = {
@@ -140,7 +122,6 @@ def run_pipeline():
         "db": davies_bouldin_score(X_pca, labels_agg),
     }
 
-    # 4. GMM on PCA
     gmm = GaussianMixture(n_components=KMEANS_K, random_state=RANDOM_STATE)
     labels_gmm = gmm.fit_predict(X_pca)
     approaches["GMM+PCA"] = {
@@ -149,7 +130,6 @@ def run_pipeline():
         "db": davies_bouldin_score(X_pca, labels_gmm),
     }
 
-    # 5. KMeans on original features with optimal k
     best_k_tune, _, _ = kmeans_optimal_k(X_train, range(2, 8))
     labels_tuned, km_tuned = kmeans_fit(X_train, best_k_tune)
     approaches[f"KMeans(k={best_k_tune})"] = {
@@ -158,7 +138,6 @@ def run_pipeline():
         "db": davies_bouldin_score(X_train, labels_tuned),
     }
 
-    # Comparison table
     print(f"  {'Method':<25} {'Silhouette':>12} {'DB Index':>10}")
     print(f"  {'-'*47}")
     best_method = None
@@ -174,12 +153,10 @@ def run_pipeline():
     print(f"\n  Best: {best_method} (silhouette={best_sil:.4f})")
     logger.log_param("best_method", best_method)
 
-    # Use best approach for final
     best_info = approaches[best_method]
     km_model = best_info["model"]
     labels_train = best_info["labels"]
 
-    # Re-fit on full data using best method
     if best_method == "KMeans+PCA":
         full_pca = pca.transform(X)
         full_labels = KMeans(n_clusters=KMEANS_K, random_state=RANDOM_STATE, n_init=10).fit_predict(full_pca)
@@ -189,7 +166,7 @@ def run_pipeline():
     elif best_method == "Agglomerative+PCA":
         full_pca = pca.transform(X)
         full_labels = AgglomerativeClustering(n_clusters=KMEANS_K).fit_predict(full_pca)
-    else:  # GMM
+    else:
         full_pca = pca.transform(X)
         full_labels = GaussianMixture(n_components=KMEANS_K, random_state=RANDOM_STATE).fit_predict(full_pca)
 
@@ -197,13 +174,11 @@ def run_pipeline():
     logger.log_metric("best_silhouette", best_sil)
     print(f"  Final labels on full data: {len(set(full_labels))} clusters")
 
-    # Save best KMeans model if applicable
     if "KMeans" in best_method:
         km_final = KMeans(n_clusters=len(set(full_labels)), random_state=RANDOM_STATE, n_init=10).fit(X if "Original" in best_method else pca.transform(X))
         joblib.dump(km_final, MODEL_FILES["kmeans"])
         print(f"  Saved model: {MODEL_FILES['kmeans']}")
 
-    # 7. Validate
     print("\n[7/7] Validation...")
     val = silhouette_score(X if "Original" in best_method else pca.transform(X), full_labels), davies_bouldin_score(X if "Original" in best_method else pca.transform(X), full_labels)
     val = {"silhouette": val[0], "davies_bouldin": val[1]}
@@ -221,7 +196,6 @@ def run_pipeline():
     print(f"  Stability (ARI):       {stability['mean_ari']:.4f} ± "
           f"{stability['std_ari']:.4f}")
 
-    # Build full output DataFrame
     if "Original" in best_method:
         full_pca_2d = PCA(n_components=2, random_state=RANDOM_STATE).fit_transform(X)
     else:
@@ -237,7 +211,6 @@ def run_pipeline():
     print(f"\n  Personas saved: {PROCESSED_FILES['personas']}")
     print(f"  Distribution:\n{cust['Persona'].value_counts()}")
 
-    # Save experiment log
     log_path = logger.save()
     print(f"\n  Experiment log: {log_path}")
     print("\n" + "=" * 60)

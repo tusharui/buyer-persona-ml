@@ -1,10 +1,3 @@
-"""
-Inference script: assign personas to new customer transaction data.
-
-Usage:
-    python src/predict.py --input path/to/new_transactions.csv --output predictions.csv
-"""
-
 import sys
 import argparse
 from pathlib import Path
@@ -19,7 +12,6 @@ from src.features import build_customer_features, FEATURE_COLS
 
 
 def load_artifacts():
-    """Load trained scaler, PCA, KMeans, and feature list."""
     scaler = joblib.load(MODEL_FILES["scaler"])
     pca = joblib.load(MODEL_FILES["pca"])
     kmeans = joblib.load(MODEL_FILES["kmeans"])
@@ -28,22 +20,16 @@ def load_artifacts():
 
 
 def predict_personas(df_transactions, scaler, pca, kmeans, selected_features):
-    """Transform raw transactions → customer features → predict persona."""
     df_clean = clean_data(df_transactions)
     cust = build_customer_features(df_clean)
 
-    # Scale using saved scaler
     scale_cols = [c for c in FEATURE_COLS if c in cust.columns]
     cust_scaled = cust.copy()
     cust_scaled[scale_cols] = scaler.transform(cust[scale_cols])
 
-    # Select features
     X = cust_scaled[selected_features].values
-
-    # PCA transform
     X_pca = pca.transform(X)
 
-    # Predict cluster
     clusters = kmeans.predict(X_pca)
     cust["Cluster"] = clusters
     cust["Persona"] = cust["Cluster"].map(PERSONA_MAP)

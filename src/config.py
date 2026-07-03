@@ -1,25 +1,19 @@
-"""Project-wide configuration using pathlib — no hardcoded absolute paths."""
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
-# Project root: auto-detected (two levels up from src/)
+load_dotenv()
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Data directories
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
-
-# Models
 MODELS_DIR = PROJECT_ROOT / "models"
-
-# Reports
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
-# Raw data file (source transactions)
 RAW_DATA_PATH = RAW_DIR / "transactions.csv"
 
-# Processed data files
 PROCESSED_FILES = {
     "features": PROCESSED_DIR / "customer_features.csv",
     "scaled": PROCESSED_DIR / "customer_features_scaled.csv",
@@ -28,7 +22,6 @@ PROCESSED_FILES = {
     "personas": PROCESSED_DIR / "customer_personas.csv",
 }
 
-# Serialized models
 MODEL_FILES = {
     "scaler": MODELS_DIR / "scaler.pkl",
     "pca": MODELS_DIR / "pca.pkl",
@@ -36,7 +29,6 @@ MODEL_FILES = {
     "selected_features": MODELS_DIR / "selected_features.pkl",
 }
 
-# Pipeline config
 RANDOM_STATE = 42
 TEST_HOLDOUT_SIZE = 0.2
 CORRELATION_THRESHOLD = 0.85
@@ -46,7 +38,14 @@ KMEANS_K = 4
 DBSCAN_EPS = 1.5
 DBSCAN_MIN_SAMPLES = 5
 
-# Persona mapping
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/buyer_persona_ml",
+)
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+PREDICTION_CACHE_TTL = int(os.getenv("PREDICTION_CACHE_TTL", "86400"))
+FEATURE_CACHE_TTL = int(os.getenv("FEATURE_CACHE_TTL", "3600"))
+
 PERSONA_MAP = {
     0: "VIP Loyal Customers",
     1: "Discount Hunters",
@@ -84,6 +83,5 @@ BUSINESS_RECOMMENDATIONS = {
     ],
 }
 
-# Ensure directories exist
 for d in [RAW_DIR, PROCESSED_DIR, MODELS_DIR, REPORTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,3 @@
-"""Data cleaning module."""
-
 import pandas as pd
 import numpy as np
 from src.config import CORRELATION_THRESHOLD, VARIANCE_THRESHOLD, RAW_DATA_PATH
@@ -43,7 +41,6 @@ def scale_features(df: pd.DataFrame, cols: list[str], method: str = "standard",
 
 def select_features_by_correlation(df: pd.DataFrame, cols: list[str],
                                     threshold: float = None):
-    """Automatically drop one feature from each pair with |r| > threshold."""
     threshold = threshold or CORRELATION_THRESHOLD
     corr = df[cols].corr()
     upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
@@ -51,7 +48,6 @@ def select_features_by_correlation(df: pd.DataFrame, cols: list[str],
     for col in upper.columns:
         for row in upper.index:
             if abs(upper.loc[row, col]) > threshold:
-                # Drop the feature with lower variance
                 var_col = df[col].var()
                 var_row = df[row].var()
                 to_drop.add(col if var_col < var_row else row)

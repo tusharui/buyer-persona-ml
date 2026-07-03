@@ -1,5 +1,3 @@
-"""Evaluation module — cluster validation metrics."""
-
 import numpy as np
 from sklearn.metrics import silhouette_score, davies_bouldin_score, silhouette_samples
 from sklearn.metrics.pairwise import euclidean_distances
@@ -35,7 +33,6 @@ def cluster_profiles(df, feature_cols, cluster_col="Cluster"):
 
 
 def cluster_stability_score(X, labels, n_splits=5, sample_frac=0.8, random_state=42):
-    """Evaluate cluster stability by repeatedly subsampling and comparing labels."""
     from sklearn.metrics import adjusted_rand_score
     rng = np.random.RandomState(random_state)
     n = len(X)
@@ -43,7 +40,6 @@ def cluster_stability_score(X, labels, n_splits=5, sample_frac=0.8, random_state
     for _ in range(n_splits):
         idx = rng.choice(n, int(n * sample_frac), replace=False)
         sub_labels = labels[idx]
-        # Refit KMeans on subsample and predict on same subsample
         from sklearn.cluster import KMeans
         n_clusters = len(set(labels))
         km = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
