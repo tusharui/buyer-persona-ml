@@ -21,6 +21,9 @@ db-check:
 generate-data:
 	python -m src.data_generator --clear
 
+feature-store:
+	python -m src.feature_store
+
 docker-build:
 	docker build -t buyer-persona-ml .
 
