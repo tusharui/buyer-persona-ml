@@ -1,4 +1,5 @@
 import sys
+import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -7,12 +8,15 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.cluster import AgglomerativeClustering, KMeans
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 import joblib
 
 from src.config import (
     RAW_DATA_PATH, PROCESSED_FILES, MODEL_FILES,
     RANDOM_STATE, TEST_HOLDOUT_SIZE, KMEANS_K,
-    PCA_VARIANCE_TARGET,
+    PCA_VARIANCE_TARGET, PERSONA_MAP,
 )
 from src.preprocessing import (
     load_raw_data, clean_data, handle_outliers,
@@ -21,22 +25,68 @@ from src.preprocessing import (
 from src.features import build_customer_features, FEATURE_COLS
 from src.clustering import kmeans_fit, kmeans_optimal_k
 from src.evaluation import validate_clusters, intra_inter_distances, cluster_stability_score
-from sklearn.cluster import AgglomerativeClustering, KMeans
-from sklearn.mixture import GaussianMixture
-from sklearn.metrics import silhouette_score, davies_bouldin_score
 from src.tracking import ExperimentLogger
+from src.database import AsyncSessionLocal
+from sqlalchemy import text
 
 logger = ExperimentLogger(name="buyer_persona_pipeline")
 
 
-def run_pipeline():
+async def load_from_neon():
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(text("""
+            SELECT invoice_id, customer_id, invoice_date, product_category,
+                   product_id, quantity, unit_price, discount_pct,
+                   payment_method, returned
+            FROM transactions
+            ORDER BY invoice_date
+        """))
+        rows = result.fetchall()
+        df = pd.DataFrame(rows, columns=[
+            "InvoiceID", "CustomerID", "InvoiceDate", "ProductCategory",
+            "ProductID", "Quantity", "UnitPrice", "DiscountPct",
+            "PaymentMethod", "Returned",
+        ])
+        df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+        return df
+
+
+async def write_clusters_to_neon(cust_df: pd.DataFrame):
+    rows = cust_df[["CustomerID", "Cluster", "Persona"]].values
+    values = ", ".join(
+        f"('{r[0]}', {int(r[1])}, '{r[2]}')" for r in rows
+    )
+    sql = text(f"""
+        UPDATE customer_features cf
+        SET cluster = tmp.cluster,
+            persona = tmp.persona,
+            updated_at = NOW()
+        FROM (VALUES {values}) AS tmp(customer_id, cluster, persona)
+        WHERE cf.customer_id = tmp.customer_id::varchar
+    """)
+    async with AsyncSessionLocal() as session:
+        await session.execute(sql)
+        await session.commit()
+        print(f"  Updated {len(cust_df)} customer records in Neon.")
+
+
+async def async_main(source: str):
     print("=" * 60)
     print("BUYER PERSONA ML — FULL PIPELINE")
     print("=" * 60)
 
-    print("\n[1/7] Loading raw data...")
-    df = load_raw_data()
+    print(f"\n[1/7] Loading raw data (source: {source})...")
+    if source == "neon":
+        print("  Reading transactions from Neon...")
+        async with AsyncSessionLocal() as session:
+            r = await session.execute(text("SELECT count(*) FROM transactions"))
+            print(f"  Neon transactions available: {r.scalar()}")
+        df = await load_from_neon()
+        print(f"  Loaded {len(df)} rows into DataFrame.")
+    else:
+        df = load_raw_data()
     logger.log_param("raw_rows", len(df))
+    logger.log_param("source", source)
     print(f"  Raw: {df.shape}")
 
     df = clean_data(df)
@@ -50,15 +100,12 @@ def run_pipeline():
     logger.log_param("n_customers", len(cust))
 
     cust.to_csv(PROCESSED_FILES["features"], index=False)
-    logger.log_artifact(str(PROCESSED_FILES["features"]))
 
     print("\n[3/7] Scaling features...")
     scale_cols = [c for c in FEATURE_COLS if c in cust.columns]
     cust_scaled, scaler = scale_features(cust.copy(), scale_cols,
                                           save_path=MODEL_FILES["scaler"])
     cust_scaled.to_csv(PROCESSED_FILES["scaled"], index=False)
-    logger.log_artifact(str(PROCESSED_FILES["scaled"]))
-    logger.log_artifact(str(MODEL_FILES["scaler"]))
     print(f"  Scaler saved: {MODEL_FILES['scaler']}")
 
     print("\n[4/7] Selecting features...")
@@ -78,7 +125,6 @@ def run_pipeline():
 
     X = cust_scaled[final_cols].values
     joblib.dump(final_cols, MODEL_FILES["selected_features"])
-    logger.log_artifact(str(MODEL_FILES["selected_features"]))
 
     print("\n[5/7] Hold-out split (stability check)...")
     X_train, X_hold = train_test_split(X, test_size=TEST_HOLDOUT_SIZE,
@@ -95,7 +141,6 @@ def run_pipeline():
     print(f"  PCA components: {pca.n_components_} "
           f"({sum(pca.explained_variance_ratio_):.2%} variance)")
     joblib.dump(pca, MODEL_FILES["pca"])
-    logger.log_artifact(str(MODEL_FILES["pca"]))
 
     print("\n[6b/7] Comparing clustering algorithms...")
     approaches = {}
@@ -204,12 +249,15 @@ def run_pipeline():
     cust["PC1"] = full_pca_2d[:, 0]
     cust["PC2"] = full_pca_2d[:, 1]
 
-    from src.config import PERSONA_MAP
     cust["Persona"] = cust["Cluster"].map(PERSONA_MAP)
     cust.to_csv(PROCESSED_FILES["personas"], index=False)
-    logger.log_artifact(str(PROCESSED_FILES["personas"]))
     print(f"\n  Personas saved: {PROCESSED_FILES['personas']}")
     print(f"  Distribution:\n{cust['Persona'].value_counts()}")
+
+    if source == "neon":
+        print("\n  Writing cluster assignments to Neon...")
+        await write_clusters_to_neon(cust)
+        logger.log_param("neon_updated", True)
 
     log_path = logger.save()
     print(f"\n  Experiment log: {log_path}")
@@ -221,11 +269,16 @@ def run_pipeline():
 
 
 if __name__ == "__main__":
+    import asyncio
+    parser = argparse.ArgumentParser(description="Buyer Persona ML pipeline.")
+    parser.add_argument("--csv", action="store_true", help="Use CSV file instead of Neon")
+    args = parser.parse_args()
+
     try:
-        run_pipeline()
+        asyncio.run(async_main(source="csv" if args.csv else "neon"))
     except FileNotFoundError as e:
         print(f"ERROR: File not found — {e}")
-        print("Make sure data/raw/transactions.csv exists. Run the data generation script first.")
+        print("Make sure data/raw/transactions.csv exists.")
         sys.exit(1)
     except Exception as e:
         print(f"ERROR: Pipeline failed — {e}")
