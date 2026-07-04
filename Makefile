@@ -24,6 +24,9 @@ generate-data:
 feature-store:
 	python -m src.feature_store
 
+run-worker:
+	celery -A src.celery_app worker --loglevel=info --pool=solo
+
 run-api:
 	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
