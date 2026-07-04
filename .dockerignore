@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.git
+.gitignore
+.ipynb_checkpoints
+.env
+*.ipynb
+notebooks/
+data/raw/
+data/processed/
+reports/
+README.md
+MODEL_CARD.md
+docker-compose*.yml
+.github/

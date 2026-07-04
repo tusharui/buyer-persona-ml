@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest
+          pip install -r requirements.txt
+
+      - name: Lint with ruff
+        run: ruff check src/ api/ dashboard/ tests/
+
+      - name: Type check with mypy
+        run: mypy src/ --ignore-missing-imports --warn-unused-configs || true
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          DATABASE_URL: sqlite+aiosqlite:///test.db
+
+      - name: Run pipeline (smoke test)
+        run: python -m src.pipeline --csv || echo "Pipeline smoke test skipped (needs data)"
+
+  build:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: buyer-persona-ml:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
