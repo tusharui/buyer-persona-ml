@@ -36,6 +36,11 @@ class ModelLoader:
         self._version = f"kmeans_k{self._kmeans.n_clusters}"
         return self
 
+    async def load_active_version(self):
+        version = await cache.get("model:active")
+        if version:
+            self._version = version
+
     def is_loaded(self) -> bool:
         return all(v is not None for v in [self._scaler, self._pca, self._kmeans, self._features])
 
