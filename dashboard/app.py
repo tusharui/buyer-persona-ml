@@ -1,37 +1,66 @@
-"""
-Buyer Persona ML — Streamlit Dashboard
-Run: streamlit run dashboard/app.py
-"""
+import asyncio
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root))
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sys
-from pathlib import Path
-
-# Ensure project root is on path
-root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(root))
 
 from src.config import PROCESSED_FILES, PERSONA_MAP, PERSONA_DESCRIPTIONS, BUSINESS_RECOMMENDATIONS
 from src.evaluation import validate_clusters
 from src.visualization import pca_scatter, feature_heatmap
+from src.database import AsyncSessionLocal
+from sqlalchemy import text
+from dashboard.cache import dash_cache
 
 st.set_page_config(page_title="Buyer Persona ML", layout="wide")
 st.title("Buyer Persona ML — Dashboard")
 
-DATA_PATH = PROCESSED_FILES["personas"]
+
+async def load_from_neon():
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(text("""
+            SELECT cf.*, c.name, c.email, c.signup_date
+            FROM customer_features cf
+            LEFT JOIN customers c ON cf.customer_id = c.customer_id
+            WHERE cf.cluster IS NOT NULL
+            ORDER BY cf.customer_id
+        """))
+        rows = result.fetchall()
+        if not rows:
+            return None
+        cols = result.keys()
+        df = pd.DataFrame(rows, columns=cols)
+        return df
 
 
 @st.cache_data
 def load_data():
-    return pd.read_csv(DATA_PATH)
+    try:
+        df = asyncio.run(load_from_neon())
+        if df is not None and not df.empty:
+            return df
+    except Exception as e:
+        st.sidebar.warning(f"Neon unavailable, falling back to CSV: {e}")
+
+    csv_path = PROCESSED_FILES["personas"]
+    if csv_path.exists():
+        return pd.read_csv(csv_path)
+    st.error("No data found. Run the pipeline first: python -m src.pipeline")
+    return pd.DataFrame()
 
 
 df = load_data()
-feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2")]
+
+if df.empty:
+    st.stop()
+
+feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2", "name", "email", "signup_date")]
 X = df[feat_cols].values
 
 st.sidebar.header("Navigation")
@@ -49,9 +78,10 @@ if page == "Dataset Overview":
     col4.metric("Personas", df["Persona"].nunique())
 
     st.subheader("Sample Data")
-    st.dataframe(df.head(10), use_container_width=True)
+    display_cols = [c for c in df.columns if c not in ("name", "email")]
+    st.dataframe(df[display_cols].head(10), use_container_width=True)
     st.subheader("Descriptive Statistics")
-    st.dataframe(df.describe(), use_container_width=True)
+    st.dataframe(df[feat_cols].describe(), use_container_width=True)
     st.subheader("Persona Distribution")
     st.bar_chart(df["Persona"].value_counts())
 
