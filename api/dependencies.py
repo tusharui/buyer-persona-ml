@@ -5,7 +5,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from src.database import AsyncSessionLocal, get_session
 from src.cache import cache
 
 

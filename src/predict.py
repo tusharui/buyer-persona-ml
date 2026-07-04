@@ -45,7 +45,7 @@ def main():
                         help="Path to save predictions CSV")
     args = parser.parse_args()
 
-    print(f"Loading artifacts...")
+    print("Loading artifacts...")
     scaler, pca, kmeans, selected_features = load_artifacts()
     print(f"  Loaded: scaler, PCA ({pca.n_components_} components), "
           f"KMeans (k={kmeans.n_clusters}), {len(selected_features)} features")
@@ -57,7 +57,7 @@ def main():
     predictions = predict_personas(df, scaler, pca, kmeans, selected_features)
     predictions.to_csv(args.output, index=False)
     print(f"  Predictions: {len(predictions)} customers")
-    print(f"  Persona distribution:")
+    print("  Persona distribution:")
     print(predictions["Persona"].value_counts().to_string())
     print(f"\nSaved to: {args.output}")
 

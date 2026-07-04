@@ -14,7 +14,7 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score
 import joblib
 
 from src.config import (
-    RAW_DATA_PATH, PROCESSED_FILES, MODEL_FILES,
+    PROCESSED_FILES, MODEL_FILES,
     RANDOM_STATE, TEST_HOLDOUT_SIZE, KMEANS_K,
     PCA_VARIANCE_TARGET, PERSONA_MAP,
 )
@@ -24,7 +24,7 @@ from src.preprocessing import (
 )
 from src.features import build_customer_features, FEATURE_COLS
 from src.clustering import kmeans_fit, kmeans_optimal_k
-from src.evaluation import validate_clusters, intra_inter_distances, cluster_stability_score
+from src.evaluation import intra_inter_distances, cluster_stability_score
 from src.tracking import ExperimentLogger
 from src.model_registry import model_registry
 from src.database import AsyncSessionLocal

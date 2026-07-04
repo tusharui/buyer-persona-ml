@@ -1,4 +1,3 @@
-import traceback
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -20,7 +19,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     errors = []
     for err in exc.errors():
         errors.append({
-            "loc": " -> ".join(str(l) for l in err["loc"]),
+            "loc": " -> ".join(str(loc) for loc in err["loc"]),
             "msg": err["msg"],
             "type": err["type"],
         })

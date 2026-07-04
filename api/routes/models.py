@@ -17,7 +17,6 @@ HISTORY_KEY = "model:history"
 
 @router.get("/models", response_model=list[ModelVersion])
 async def list_models():
-    artifacts = ["scaler.pkl", "pca.pkl", "kmeans.pkl", "selected_features.pkl"]
     if not MODELS_DIR.exists():
         return []
     versions = []
@@ -31,7 +30,6 @@ async def list_models():
             ))
     if not versions:
         active = model_loader.version if model_loader.is_loaded() else "unknown"
-        ckpt = MODELS_DIR / f"v_{active}"
         versions.append(ModelVersion(version=active, status="available"))
     active_version = await cache.get(MODEL_KEY)
     for v in versions:

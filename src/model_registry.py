@@ -6,7 +6,6 @@ from mlflow import MlflowClient, MlflowException
 from mlflow.entities.model_registry import ModelVersion
 
 from src.cache import cache
-from src.config import MODELS_DIR
 
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 MODEL_NAME = "buyer_persona_kmeans"

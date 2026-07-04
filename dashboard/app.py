@@ -2,21 +2,19 @@ import asyncio
 import sys
 from pathlib import Path
 
-root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(root))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sqlalchemy import text
 
 from src.config import PROCESSED_FILES, PERSONA_MAP, PERSONA_DESCRIPTIONS, BUSINESS_RECOMMENDATIONS
 from src.evaluation import validate_clusters
 from src.visualization import pca_scatter, feature_heatmap
 from src.database import AsyncSessionLocal
-from sqlalchemy import text
-from dashboard.cache import dash_cache
 
 st.set_page_config(page_title="Buyer Persona ML", layout="wide")
 st.title("Buyer Persona ML — Dashboard")
@@ -115,7 +113,9 @@ elif page == "PCA & UMAP":
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(pca3[:, 0], pca3[:, 1], pca3[:, 2],
                     c=df["Cluster"], cmap="tab10", alpha=0.6, s=15)
-    ax.set_xlabel("PC1"); ax.set_ylabel("PC2"); ax.set_zlabel("PC3")
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    ax.set_zlabel("PC3")
     plt.colorbar(sc, ax=ax, label="Cluster", shrink=0.6)
     st.pyplot(fig)
 
@@ -127,7 +127,8 @@ elif page == "PCA & UMAP":
         fig, ax = plt.subplots(figsize=(10, 7))
         sc = ax.scatter(X_umap[:, 0], X_umap[:, 1], c=df["Cluster"],
                         cmap="tab10", alpha=0.6, s=15)
-        ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
+        ax.set_xlabel("UMAP-1")
+        ax.set_ylabel("UMAP-2")
         st.pyplot(fig)
 
 elif page == "Clustering Results":
@@ -180,7 +181,8 @@ elif page == "Persona Explorer":
     fig, ax = plt.subplots(figsize=(10, 7))
     colors = np.where(df["Persona"] == persona, "red", "lightgray")
     ax.scatter(df["PC1"], df["PC2"], c=colors, alpha=0.5, s=15)
-    ax.set_xlabel("PC1"); ax.set_ylabel("PC2")
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
     ax.set_title(f"Customers Matching: {persona}")
     st.pyplot(fig)
 

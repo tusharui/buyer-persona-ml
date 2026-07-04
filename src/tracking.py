@@ -6,7 +6,7 @@ from typing import Optional
 import mlflow
 from mlflow import MlflowClient
 
-from src.config import REPORTS_DIR, MODELS_DIR
+from src.config import REPORTS_DIR
 
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 

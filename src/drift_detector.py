@@ -5,10 +5,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp, entropy
-from sklearn.preprocessing import StandardScaler
 
-from src.config import MODELS_DIR, PROCESSED_DIR
-from src.cache import cache
+from src.config import PROCESSED_DIR
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 

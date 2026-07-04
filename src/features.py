@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 
 def build_customer_features(df: pd.DataFrame, ref_date=None) -> pd.DataFrame:
