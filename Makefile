@@ -1,4 +1,4 @@
-.PHONY: setup test run docker-build docker-run clean db-check redis-check
+.PHONY: setup test run docker-build docker-run docker-up docker-down docker-logs clean db-check redis-check
 
 setup:
 	pip install -r requirements.txt
@@ -35,6 +35,18 @@ docker-build:
 
 docker-run:
 	docker run -p 8501:8501 buyer-persona-ml
+
+docker-up:
+	docker compose up --build -d
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f
+
+docker-up-prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
