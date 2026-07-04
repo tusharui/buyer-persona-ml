@@ -176,3 +176,16 @@ class TestValidateClusters:
         result = cluster_stability_score(X, labels, n_splits=3)
         assert "mean_ari" in result
         assert -1 <= result["mean_ari"] <= 1
+
+
+class TestModelRegistry:
+    def test_registry_instantiation(self):
+        from src.model_registry import ModelRegistry
+        reg = ModelRegistry()
+        assert reg is not None
+        assert reg._client is None
+
+    def test_latest_versions_empty_when_no_mlflow(self):
+        from src.model_registry import model_registry
+        versions = model_registry.get_latest_versions()
+        assert versions == []
