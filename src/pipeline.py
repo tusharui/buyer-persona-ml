@@ -26,6 +26,7 @@ from src.features import build_customer_features, FEATURE_COLS
 from src.clustering import kmeans_fit, kmeans_optimal_k
 from src.evaluation import validate_clusters, intra_inter_distances, cluster_stability_score
 from src.tracking import ExperimentLogger
+from src.model_registry import model_registry
 from src.database import AsyncSessionLocal
 from sqlalchemy import text
 
@@ -74,6 +75,7 @@ async def async_main(source: str):
     print("=" * 60)
     print("BUYER PERSONA ML — FULL PIPELINE")
     print("=" * 60)
+    logger.start_run()
 
     print(f"\n[1/7] Loading raw data (source: {source})...")
     if source == "neon":
@@ -259,7 +261,21 @@ async def async_main(source: str):
         await write_clusters_to_neon(cust)
         logger.log_param("neon_updated", True)
 
+    for name, path in MODEL_FILES.items():
+        if path.exists():
+            logger.log_artifact(str(path))
+    logger.log_artifact(str(PROCESSED_FILES["personas"]))
+
+    if logger._run_id:
+        version = model_registry.register_model(
+            run_id=logger._run_id,
+            description=f"Pipeline run: {best_method}, silhouette={best_sil:.4f}",
+        )
+        if version:
+            model_registry.promote_to_staging(version.version)
+
     log_path = logger.save()
+    logger.end_run()
     print(f"\n  Experiment log: {log_path}")
     print("\n" + "=" * 60)
     print("PIPELINE COMPLETE")
