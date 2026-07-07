@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from pathlib import Path
 
@@ -9,43 +8,17 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sqlalchemy import text
 
 from src.config import PROCESSED_FILES, PERSONA_MAP, PERSONA_DESCRIPTIONS, BUSINESS_RECOMMENDATIONS
 from src.evaluation import validate_clusters
 from src.visualization import pca_scatter, feature_heatmap
-from src.database import AsyncSessionLocal
 
 st.set_page_config(page_title="Buyer Persona ML", layout="wide")
 st.title("Buyer Persona ML — Dashboard")
 
 
-async def load_from_neon():
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(text("""
-            SELECT cf.*, c.name, c.email, c.signup_date
-            FROM customer_features cf
-            LEFT JOIN customers c ON cf.customer_id = c.customer_id
-            WHERE cf.cluster IS NOT NULL
-            ORDER BY cf.customer_id
-        """))
-        rows = result.fetchall()
-        if not rows:
-            return None
-        cols = result.keys()
-        df = pd.DataFrame(rows, columns=cols)
-        return df
-
-
 @st.cache_data
 def load_data():
-    try:
-        df = asyncio.run(load_from_neon())
-        if df is not None and not df.empty:
-            return df
-    except Exception as e:
-        st.sidebar.warning(f"Neon unavailable, falling back to CSV: {e}")
-
     csv_path = PROCESSED_FILES["personas"]
     if csv_path.exists():
         return pd.read_csv(csv_path)
@@ -58,7 +31,7 @@ df = load_data()
 if df.empty:
     st.stop()
 
-feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2", "name", "email", "signup_date")]
+feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2")]
 X = df[feat_cols].values
 
 st.sidebar.header("Navigation")
@@ -76,7 +49,7 @@ if page == "Dataset Overview":
     col4.metric("Personas", df["Persona"].nunique())
 
     st.subheader("Sample Data")
-    display_cols = [c for c in df.columns if c not in ("name", "email")]
+    display_cols = [c for c in df.columns if c != "CustomerID"]
     st.dataframe(df[display_cols].head(10), use_container_width=True)
     st.subheader("Descriptive Statistics")
     st.dataframe(df[feat_cols].describe(), use_container_width=True)
