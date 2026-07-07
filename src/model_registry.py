@@ -7,7 +7,7 @@ from mlflow.entities.model_registry import ModelVersion
 
 from src.cache import cache
 
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "")
 MODEL_NAME = "buyer_persona_kmeans"
 REDIS_ACTIVE_KEY = "model:active"
 
