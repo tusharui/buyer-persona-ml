@@ -31,7 +31,7 @@ df = load_data()
 if df.empty:
     st.stop()
 
-feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2")]
+feat_cols = [c for c in df.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2") and df[c].dtype in ("int64", "float64")]
 X = df[feat_cols].values
 
 st.sidebar.header("Navigation")
