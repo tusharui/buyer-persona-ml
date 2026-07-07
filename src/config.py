@@ -38,6 +38,11 @@ KMEANS_K = 4
 DBSCAN_EPS = 1.5
 DBSCAN_MIN_SAMPLES = 5
 
+OPTUNA_N_TRIALS = 50
+CHURN_TEST_SIZE = 0.3
+FORECAST_DAYS = 90
+ANOMALY_CONTAMINATION = 0.05
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5432/buyer_persona_ml",
@@ -45,6 +50,16 @@ DATABASE_URL = os.getenv(
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 PREDICTION_CACHE_TTL = int(os.getenv("PREDICTION_CACHE_TTL", "86400"))
 FEATURE_CACHE_TTL = int(os.getenv("FEATURE_CACHE_TTL", "3600"))
+
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.openai.com/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "buyer-persona-transactions")
+KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "buyer-persona-ml")
+
+CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(PROJECT_ROOT / "chroma_db"))
 
 PERSONA_MAP = {
     0: "VIP Loyal Customers",

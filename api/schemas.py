@@ -49,3 +49,84 @@ class ModelVersion(BaseModel):
     silhouette: Optional[float] = None
     created_at: Optional[str] = None
     status: str
+
+
+class FeatureAttribution(BaseModel):
+    feature: str
+    importance: float
+    direction: str
+
+
+class ExplainResponse(BaseModel):
+    customer_id: str
+    persona: str
+    base_value: float
+    contributions: list[FeatureAttribution]
+
+
+class ChurnPrediction(BaseModel):
+    customer_id: str
+    churn_probability: float
+    churn_risk: str
+    top_factors: list[FeatureAttribution]
+
+
+class ChurnPredictResponse(BaseModel):
+    predictions: list[ChurnPrediction]
+    model_version: str
+
+
+class AnomalyResult(BaseModel):
+    customer_id: str
+    anomaly_score: float
+    is_anomaly: bool
+    reconstruction_error: float
+
+
+class AnomalyResponse(BaseModel):
+    total_checked: int
+    anomalies_found: int
+    results: list[AnomalyResult]
+
+
+class ForecastPoint(BaseModel):
+    date: str
+    predicted_value: float
+    lower_bound: float
+    upper_bound: float
+
+
+class ForecastResponse(BaseModel):
+    persona: str
+    metric: str
+    forecast: list[ForecastPoint]
+
+
+class NarrateRequest(BaseModel):
+    persona: str
+    profile: Optional[dict] = None
+
+
+class NarrateResponse(BaseModel):
+    persona: str
+    narrative: str
+    model_used: str
+
+
+class ChatRequest(BaseModel):
+    query: str
+    history: Optional[list[dict]] = None
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[str]
+
+
+class StreamPredictRequest(BaseModel):
+    transactions: list[TransactionInput]
+
+
+class StreamPredictResponse(BaseModel):
+    status: str
+    message: str
