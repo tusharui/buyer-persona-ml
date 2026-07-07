@@ -24,6 +24,17 @@ def prepare_time_series(df: pd.DataFrame, persona_col: str = "Persona") -> dict[
     df[date_col] = pd.to_datetime(df[date_col])
     df["Month"] = df[date_col].dt.to_period("M").dt.to_timestamp()
 
+    if "Monetary" not in df.columns:
+        if all(c in df.columns for c in ("Quantity", "UnitPrice")):
+            discount = df["DiscountPct"] / 100.0 if "DiscountPct" in df.columns else 0.0
+            df["Monetary"] = df["Quantity"] * df["UnitPrice"] * (1.0 - discount)
+        elif "TotalAmount" in df.columns:
+            df["Monetary"] = df["TotalAmount"]
+        elif "Revenue" in df.columns:
+            df["Monetary"] = df["Revenue"]
+        else:
+            return {}
+
     series = {}
     for persona in df[persona_col].unique():
         mask = df[persona_col] == persona
