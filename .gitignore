@@ -37,3 +37,6 @@ predictions.csv
 
 # MLflow
 mlruns/
+
+# ChromaDB vector store
+chroma_db/

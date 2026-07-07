@@ -66,11 +66,11 @@ class RAGChatbot:
         try:
             from langchain_community.vectorstores import Chroma
             from langchain_community.embeddings import HuggingFaceEmbeddings
-            from langchain.chains import create_retrieval_chain
-            from langchain.chains.combine_documents import create_stuff_documents_chain
-            from langchain.prompts import ChatPromptTemplate
-            from langchain_community.chat_models import ChatOpenAI
-            from langchain.text_splitter import RecursiveCharacterTextSplitter
+            from langchain_classic.chains import create_retrieval_chain
+            from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+            from langchain_classic.prompts import ChatPromptTemplate
+            from langchain_openai import ChatOpenAI
+            from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 
             docs = _find_documents()
             if not docs:
@@ -102,7 +102,6 @@ class RAGChatbot:
             self._vectorstore.persist()
 
             if LLM_API_KEY:
-                from langchain_community.chat_models import ChatOpenAI
                 llm = ChatOpenAI(
                     model=LLM_MODEL,
                     api_key=LLM_API_KEY,
