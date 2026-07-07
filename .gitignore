@@ -28,6 +28,10 @@ reports/*.csv
 reports/*.json
 reports/*.pdf
 
+# Predictions output
+predictions.csv
+*.out.csv
+
 # Keep raw data
 !data/raw/*.csv
 

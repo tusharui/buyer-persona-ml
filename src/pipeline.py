@@ -5,17 +5,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
-import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
-from sklearn.cluster import AgglomerativeClustering, KMeans
-from sklearn.mixture import GaussianMixture
-from sklearn.metrics import silhouette_score, davies_bouldin_score
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import joblib
 
 from src.config import (
     PROCESSED_FILES, MODEL_FILES,
-    RANDOM_STATE, TEST_HOLDOUT_SIZE, KMEANS_K,
+    RANDOM_STATE, KMEANS_K,
     PCA_VARIANCE_TARGET, PERSONA_MAP,
 )
 from src.preprocessing import (
@@ -24,13 +21,9 @@ from src.preprocessing import (
 )
 from src.features import build_customer_features, FEATURE_COLS
 from src.clustering import kmeans_fit, kmeans_optimal_k
-from src.evaluation import intra_inter_distances, cluster_stability_score
 from src.tracking import ExperimentLogger
-from src.model_registry import model_registry
 from src.database import AsyncSessionLocal
 from sqlalchemy import text
-
-logger = ExperimentLogger(name="buyer_persona_pipeline")
 
 
 async def load_from_neon():
@@ -72,6 +65,7 @@ async def write_clusters_to_neon(cust_df: pd.DataFrame):
 
 
 async def async_main(source: str):
+    logger = ExperimentLogger(name="buyer_persona_pipeline")
     print("=" * 60)
     print("BUYER PERSONA ML — FULL PIPELINE")
     print("=" * 60)
@@ -128,15 +122,9 @@ async def async_main(source: str):
     X = cust_scaled[final_cols].values
     joblib.dump(final_cols, MODEL_FILES["selected_features"])
 
-    print("\n[5/7] Hold-out split (stability check)...")
-    X_train, X_hold = train_test_split(X, test_size=TEST_HOLDOUT_SIZE,
-                                        random_state=RANDOM_STATE)
-    print(f"  Train: {X_train.shape}, Hold-out: {X_hold.shape}")
-    logger.log_param("holdout_size", TEST_HOLDOUT_SIZE)
-
-    print("\n[6/7] PCA + clustering...")
+    print("\n[5/7] PCA + clustering...")
     pca = PCA(n_components=PCA_VARIANCE_TARGET, random_state=RANDOM_STATE)
-    X_pca = pca.fit_transform(X_train)
+    X_pca = pca.fit_transform(X)
     logger.log_param("pca_components", pca.n_components_)
     logger.log_param("pca_explained_variance",
                      sum(pca.explained_variance_ratio_))
@@ -144,55 +132,35 @@ async def async_main(source: str):
           f"({sum(pca.explained_variance_ratio_):.2%} variance)")
     joblib.dump(pca, MODEL_FILES["pca"])
 
-    print("\n[6b/7] Comparing clustering algorithms...")
+    print("\n[5b/7] Comparing clustering algorithms...")
     approaches = {}
 
     labels_pca, km_pca = kmeans_fit(X_pca, KMEANS_K)
     approaches["KMeans+PCA"] = {
         "model": km_pca, "labels": labels_pca,
         "silhouette": silhouette_score(X_pca, labels_pca),
-        "db": davies_bouldin_score(X_pca, labels_pca),
     }
 
-    labels_orig, km_orig = kmeans_fit(X_train, KMEANS_K)
+    labels_orig, km_orig = kmeans_fit(X, KMEANS_K)
     approaches["KMeans+Original"] = {
         "model": km_orig, "labels": labels_orig,
-        "silhouette": silhouette_score(X_train, labels_orig),
-        "db": davies_bouldin_score(X_train, labels_orig),
+        "silhouette": silhouette_score(X, labels_orig),
     }
 
-    agg = AgglomerativeClustering(n_clusters=KMEANS_K)
-    labels_agg = agg.fit_predict(X_pca)
-    approaches["Agglomerative+PCA"] = {
-        "model": agg, "labels": labels_agg,
-        "silhouette": silhouette_score(X_pca, labels_agg),
-        "db": davies_bouldin_score(X_pca, labels_agg),
-    }
-
-    gmm = GaussianMixture(n_components=KMEANS_K, random_state=RANDOM_STATE)
-    labels_gmm = gmm.fit_predict(X_pca)
-    approaches["GMM+PCA"] = {
-        "model": gmm, "labels": labels_gmm,
-        "silhouette": silhouette_score(X_pca, labels_gmm),
-        "db": davies_bouldin_score(X_pca, labels_gmm),
-    }
-
-    best_k_tune, _, _ = kmeans_optimal_k(X_train, range(2, 8))
-    labels_tuned, km_tuned = kmeans_fit(X_train, best_k_tune)
+    best_k_tune, _, _ = kmeans_optimal_k(X, range(2, 8))
+    labels_tuned, km_tuned = kmeans_fit(X, best_k_tune)
     approaches[f"KMeans(k={best_k_tune})"] = {
         "model": km_tuned, "labels": labels_tuned,
-        "silhouette": silhouette_score(X_train, labels_tuned),
-        "db": davies_bouldin_score(X_train, labels_tuned),
+        "silhouette": silhouette_score(X, labels_tuned),
     }
 
-    print(f"  {'Method':<25} {'Silhouette':>12} {'DB Index':>10}")
-    print(f"  {'-'*47}")
+    print(f"  {'Method':<25} {'Silhouette':>12}")
+    print(f"  {'-'*37}")
     best_method = None
     best_sil = -1
     for name, info in sorted(approaches.items(), key=lambda x: -x[1]["silhouette"]):
         sil = info["silhouette"]
-        db = info["db"]
-        print(f"  {name:<25} {sil:>12.4f} {db:>10.4f}")
+        print(f"  {name:<25} {sil:>12.4f}")
         if sil > best_sil:
             best_sil = sil
             best_method = name
@@ -201,52 +169,19 @@ async def async_main(source: str):
     logger.log_param("best_method", best_method)
 
     best_info = approaches[best_method]
-    km_model = best_info["model"]
-    labels_train = best_info["labels"]
 
-    if best_method == "KMeans+PCA":
-        full_pca = pca.transform(X)
-        full_labels = KMeans(n_clusters=KMEANS_K, random_state=RANDOM_STATE, n_init=10).fit_predict(full_pca)
-    elif best_method == "KMeans+Original" or best_method.startswith("KMeans(k="):
-        k = km_model.n_clusters
-        full_labels = KMeans(n_clusters=k, random_state=RANDOM_STATE, n_init=10).fit_predict(X)
-    elif best_method == "Agglomerative+PCA":
-        full_pca = pca.transform(X)
-        full_labels = AgglomerativeClustering(n_clusters=KMEANS_K).fit_predict(full_pca)
-    else:
-        full_pca = pca.transform(X)
-        full_labels = GaussianMixture(n_components=KMEANS_K, random_state=RANDOM_STATE).fit_predict(full_pca)
+    k = best_info["model"].n_clusters
+    km_final = KMeans(n_clusters=k, random_state=RANDOM_STATE, n_init=10).fit(X)
+    full_labels = km_final.predict(X)
+    joblib.dump(km_final, MODEL_FILES["kmeans"])
+    print(f"  Saved model: {MODEL_FILES['kmeans']}")
 
-    logger.log_param("final_labels", best_method)
-    logger.log_metric("best_silhouette", best_sil)
-    print(f"  Final labels on full data: {len(set(full_labels))} clusters")
+    print("\n[6/7] Validation...")
+    val = silhouette_score(X, full_labels)
+    logger.log_metric("silhouette", val)
+    print(f"  Silhouette Score: {val:.4f}")
 
-    if "KMeans" in best_method:
-        km_final = KMeans(n_clusters=len(set(full_labels)), random_state=RANDOM_STATE, n_init=10).fit(X if "Original" in best_method else pca.transform(X))
-        joblib.dump(km_final, MODEL_FILES["kmeans"])
-        print(f"  Saved model: {MODEL_FILES['kmeans']}")
-
-    print("\n[7/7] Validation...")
-    val = silhouette_score(X if "Original" in best_method else pca.transform(X), full_labels), davies_bouldin_score(X if "Original" in best_method else pca.transform(X), full_labels)
-    val = {"silhouette": val[0], "davies_bouldin": val[1]}
-    logger.log_metrics(val)
-    print(f"  Silhouette Score:      {val['silhouette']:.4f}")
-    print(f"  Davies-Bouldin Index:  {val['davies_bouldin']:.4f}")
-
-    intra_inter = intra_inter_distances(X_pca, labels_train)
-    logger.log_metric("avg_intra_distance", np.mean(intra_inter["intra"]))
-    logger.log_metric("avg_inter_distance", intra_inter["inter_mean"])
-
-    stability = cluster_stability_score(X_pca, labels_train)
-    logger.log_metrics({f"stability_{k}": v for k, v in stability.items()
-                        if k != "scores"})
-    print(f"  Stability (ARI):       {stability['mean_ari']:.4f} ± "
-          f"{stability['std_ari']:.4f}")
-
-    if "Original" in best_method:
-        full_pca_2d = PCA(n_components=2, random_state=RANDOM_STATE).fit_transform(X)
-    else:
-        full_pca_2d = pca.transform(X)[:, :2]
+    full_pca_2d = PCA(n_components=2, random_state=RANDOM_STATE).fit_transform(X)
     cust["Cluster"] = full_labels
     cust["PC1"] = full_pca_2d[:, 0]
     cust["PC2"] = full_pca_2d[:, 1]
@@ -260,19 +195,6 @@ async def async_main(source: str):
         print("\n  Writing cluster assignments to Neon...")
         await write_clusters_to_neon(cust)
         logger.log_param("neon_updated", True)
-
-    for name, path in MODEL_FILES.items():
-        if path.exists():
-            logger.log_artifact(str(path))
-    logger.log_artifact(str(PROCESSED_FILES["personas"]))
-
-    if logger._run_id:
-        version = model_registry.register_model(
-            run_id=logger._run_id,
-            description=f"Pipeline run: {best_method}, silhouette={best_sil:.4f}",
-        )
-        if version:
-            model_registry.promote_to_staging(version.version)
 
     log_path = logger.save()
     logger.end_run()
