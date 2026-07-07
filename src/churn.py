@@ -67,11 +67,23 @@ def train_churn_model(feature_df: pd.DataFrame, feature_cols: list[str]) -> dict
     return {"model": model, "metrics": metrics, "importance": importances}
 
 
+def _ensure_churn_model():
+    if CHURN_MODEL_PATH.exists() and CHURN_FEATURES_PATH.exists():
+        return joblib.load(CHURN_MODEL_PATH), joblib.load(CHURN_FEATURES_PATH)
+    from src.config import PROCESSED_DIR
+    features_csv = PROCESSED_DIR / "customer_features.csv"
+    if not features_csv.exists():
+        return None, None
+    cust_df = pd.read_csv(features_csv)
+    feature_cols = ["Recency", "Frequency", "Monetary", "AvgBasketSize", "DiscountUsage", "ReturnRate"]
+    existing = [c for c in feature_cols if c in cust_df.columns]
+    result = train_churn_model(cust_df, existing)
+    return result["model"], existing
+
+
 def predict_churn(feature_vector: dict, model=None, feature_cols: list[str] = None) -> dict:
-    if model is None:
-        model = joblib.load(CHURN_MODEL_PATH)
-    if feature_cols is None:
-        feature_cols = joblib.load(CHURN_FEATURES_PATH)
+    if model is None or feature_cols is None:
+        model, feature_cols = _ensure_churn_model()
 
     X = np.array([[feature_vector[f] for f in feature_cols]])
     prob = float(model.predict_proba(X)[:, 1][0])
