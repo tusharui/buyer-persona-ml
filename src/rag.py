@@ -1,8 +1,12 @@
 import sys
 import json
+import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+warnings.filterwarnings("ignore", message=".*No module named 'torchvision'*")
 
 from src.config import LLM_API_KEY, LLM_MODEL, LLM_API_BASE, CHROMA_PERSIST_DIR, REPORTS_DIR, PROCESSED_DIR, PROJECT_ROOT
 
@@ -16,7 +20,7 @@ def _find_documents() -> list[dict]:
         if not path.exists():
             continue
         for f in path.iterdir():
-            if f.suffix == ".csv":
+            if f.suffix == ".csv" and f.name not in ("customer_personas.csv", "predictions.csv"):
                 try:
                     import pandas as pd
                     df = pd.read_csv(f)
@@ -51,6 +55,23 @@ def _find_documents() -> list[dict]:
             "content": f"Persona: {persona}\nDescription: {desc}\nRecommendations: {', '.join(BUSINESS_RECOMMENDATIONS.get(persona, []))}",
             "metadata": {"source": "config", "type": "persona", "persona": persona},
         })
+
+    personas_csv = PROCESSED_DIR / "customer_personas.csv"
+    if personas_csv.exists():
+        try:
+            import pandas as pd
+            pdf = pd.read_csv(personas_csv)
+            feat_cols = [c for c in pdf.columns if c not in ("CustomerID", "Cluster", "Persona", "PC1", "PC2") and pdf[c].dtype in ("int64", "float64")]
+            profile = pdf.groupby("Persona")[feat_cols].mean().round(3)
+            for persona in profile.index:
+                row = profile.loc[persona].to_dict()
+                summary = ", ".join(f"{k}: {v}" for k, v in row.items())
+                docs.append({
+                    "content": f"Persona: {persona}\nAverage feature profile: {summary}",
+                    "metadata": {"source": str(personas_csv), "type": "persona_profile", "persona": persona},
+                })
+        except Exception:
+            pass
     return docs
 
 
@@ -79,6 +100,13 @@ class RAGChatbot:
 
             persist_dir = Path(CHROMA_PERSIST_DIR)
             persist_dir.mkdir(parents=True, exist_ok=True)
+
+            import chromadb
+            _client = chromadb.PersistentClient(path=str(persist_dir))
+            try:
+                _client.delete_collection(CHROMA_COLLECTION)
+            except ValueError:
+                pass
 
             embeddings = HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
@@ -121,7 +149,10 @@ Context: {context}"""),
                 ("human", "{input}"),
             ])
 
-            retriever = self._vectorstore.as_retriever(search_kwargs={"k": 4})
+            retriever = self._vectorstore.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": 6, "fetch_k": 20, "lambda_mult": 0.7},
+            )
             combine_docs_chain = create_stuff_documents_chain(llm, prompt)
             self._chain = create_retrieval_chain(retriever, combine_docs_chain)
             self._initialized = True
