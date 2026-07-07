@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from api.schemas import NarrateRequest, NarrateResponse
 from src.llm import llm_client
-from src.config import PERSONA_MAP, PERSONA_DESCRIPTIONS
+from src.config import PERSONA_MAP
 
 router = APIRouter(tags=["persona"])
 

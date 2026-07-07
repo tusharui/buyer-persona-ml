@@ -1,5 +1,3 @@
-import hashlib
-import json
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -8,7 +6,6 @@ from api.schemas import ExplainResponse, FeatureAttribution
 from api.dependencies import model_loader
 from src.explainer import persona_explainer
 from src.features import build_customer_features
-from src.config import PERSONA_MAP
 
 router = APIRouter(tags=["explain"])
 

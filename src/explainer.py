@@ -4,12 +4,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import shap
 import numpy as np
-import pandas as pd
 import joblib
 from typing import Optional
 
 from src.config import MODEL_FILES, PERSONA_MAP
-from src.features import FEATURE_COLS
 
 
 class PersonaExplainer:

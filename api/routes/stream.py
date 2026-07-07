@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from api.schemas import StreamPredictRequest, StreamPredictResponse
 from src.streaming import streaming_producer
@@ -9,7 +9,6 @@ router = APIRouter(tags=["stream"])
 
 @router.post("/stream/predict", response_model=StreamPredictResponse)
 async def stream_predict(req: StreamPredictRequest):
-    import asyncio
     if streaming_producer._producer is None:
         await streaming_producer.start()
 
@@ -24,13 +23,11 @@ async def stream_predict(req: StreamPredictRequest):
 
 @router.post("/stream/connect")
 async def stream_connect():
-    import asyncio
     await streaming_producer.start()
     return {"status": "connected", "broker": "localhost:9092"}
 
 
 @router.post("/stream/disconnect")
 async def stream_disconnect():
-    import asyncio
     await streaming_producer.stop()
     return {"status": "disconnected"}

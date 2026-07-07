@@ -1,8 +1,6 @@
 import sys
-import os
 import json
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -47,7 +45,7 @@ def _find_documents() -> list[dict]:
                     })
                 except Exception:
                     pass
-    from src.config import PERSONA_MAP, PERSONA_DESCRIPTIONS, BUSINESS_RECOMMENDATIONS
+    from src.config import PERSONA_DESCRIPTIONS, BUSINESS_RECOMMENDATIONS
     for persona, desc in PERSONA_DESCRIPTIONS.items():
         docs.append({
             "content": f"Persona: {persona}\nDescription: {desc}\nRecommendations: {', '.join(BUSINESS_RECOMMENDATIONS.get(persona, []))}",

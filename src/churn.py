@@ -5,13 +5,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pandas as pd
 import joblib
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, average_precision_score, classification_report
-from typing import Optional
+from sklearn.metrics import roc_auc_score, average_precision_score
 
-from src.config import MODEL_FILES, MODELS_DIR, CHURN_TEST_SIZE, RANDOM_STATE
+from src.config import MODELS_DIR, CHURN_TEST_SIZE, RANDOM_STATE
 
 
 CHURN_MODEL_PATH = MODELS_DIR / "churn_model.pkl"
@@ -49,7 +47,6 @@ def train_churn_model(feature_df: pd.DataFrame, feature_cols: list[str]) -> dict
     model.fit(X_train, y_train)
 
     y_prob = model.predict_proba(X_test)[:, 1]
-    y_pred = model.predict(X_test)
 
     metrics = {
         "roc_auc": round(roc_auc_score(y_test, y_prob), 4),

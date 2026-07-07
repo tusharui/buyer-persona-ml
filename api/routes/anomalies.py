@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException
 from api.schemas import AnomalyResponse, AnomalyResult
 from api.dependencies import model_loader
 from src.anomaly_detector import anomaly_detector
-from src.features import build_customer_features
 
 router = APIRouter(tags=["anomalies"])
 
@@ -33,7 +32,6 @@ async def detect_anomalies():
         raise HTTPException(status_code=404, detail="No persona data found.")
 
     df = pd.read_csv(personas_path)
-    feat_cols = [c for c in model_loader.features if c in df.columns]
     results = anomaly_detector.detect_batch(df)
 
     return AnomalyResponse(

@@ -35,7 +35,6 @@ class AnomalyDetector:
         joblib.dump(model, ANOMALY_MODEL_PATH)
         joblib.dump(feature_cols, MODELS_DIR / "anomaly_features.pkl")
 
-        scores = model.decision_function(X)
         preds = model.predict(X)
 
         n_anomalies = int((preds == -1).sum())

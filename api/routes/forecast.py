@@ -3,7 +3,6 @@ from fastapi import APIRouter, HTTPException
 from api.schemas import ForecastResponse, ForecastPoint
 from src.forecast import prepare_time_series, forecast_persona, save_forecast, get_forecast_for_persona
 from src.config import PERSONA_MAP, PROCESSED_DIR
-from pathlib import Path
 import pandas as pd
 
 router = APIRouter(tags=["forecast"])

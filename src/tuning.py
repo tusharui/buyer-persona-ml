@@ -3,11 +3,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans, DBSCAN
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
-from typing import Optional
 
 from src.config import RANDOM_STATE, OPTUNA_N_TRIALS
 
