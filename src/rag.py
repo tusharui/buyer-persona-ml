@@ -75,6 +75,27 @@ def _find_documents() -> list[dict]:
     return docs
 
 
+def _friendly_source(source: str) -> str:
+    src = source.lower()
+    if "customer_personas" in src:
+        return "Customer Persona Profiles"
+    if "customer_features_scaled" in src:
+        return "Scaled Customer Features"
+    if "customer_features" in src:
+        return "Customer Features Data"
+    if "drift_baseline" in src:
+        return "Drift Baseline Analysis"
+    if "pipeline" in src:
+        return "Pipeline Report"
+    if "readme" in src:
+        return "Project Documentation"
+    if "predictions" in src:
+        return "Predictions"
+    if source == "config":
+        return "Persona Configuration"
+    return source
+
+
 class RAGChatbot:
     def __init__(self):
         self._vectorstore = None
@@ -170,7 +191,7 @@ Context: {context}"""),
         try:
             result = self._chain.invoke({"input": question})
             sources = list(set(
-                doc.metadata.get("source", "unknown")
+                _friendly_source(doc.metadata.get("source", "unknown"))
                 for doc in result.get("context", [])
             ))
             return {"answer": result["answer"], "sources": sources}
