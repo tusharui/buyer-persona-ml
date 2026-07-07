@@ -14,6 +14,13 @@ from api.routes.predict import router as predict_router
 from api.routes.training import router as training_router
 from api.routes.models import router as models_router
 from api.routes.drift import router as drift_router
+from api.routes.explain import router as explain_router
+from api.routes.churn import router as churn_router
+from api.routes.anomalies import router as anomalies_router
+from api.routes.forecast import router as forecast_router
+from api.routes.persona import router as persona_router
+from api.routes.chat import router as chat_router
+from api.routes.stream import router as stream_router
 from api.exception_handlers import (
     http_exception_handler,
     validation_exception_handler,
@@ -68,6 +75,13 @@ app.include_router(predict_router)
 app.include_router(training_router)
 app.include_router(models_router)
 app.include_router(drift_router)
+app.include_router(explain_router)
+app.include_router(churn_router)
+app.include_router(anomalies_router)
+app.include_router(forecast_router)
+app.include_router(persona_router)
+app.include_router(chat_router)
+app.include_router(stream_router)
 
 
 @app.get("/health", response_model=HealthResponse)
