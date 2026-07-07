@@ -169,7 +169,7 @@ elif page == "AI Persona Narratives":
             for persona in list(PERSONA_MAP.values()):
                 avg = df[df["Persona"] == persona][feat_cols].mean().round(2)
                 profile = avg.to_dict()
-                result = llm_client.generate_narrative(persona, str(profile))
+                result = llm_client.generate_narrative(persona, profile)
                 with st.expander(f"**{persona}**"):
                     st.write(result["narrative"])
                     if result.get("model_used"):
