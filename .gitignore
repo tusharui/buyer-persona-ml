@@ -30,3 +30,6 @@ reports/*.pdf
 
 # Keep raw data
 !data/raw/*.csv
+
+# MLflow
+mlruns/
