@@ -38,6 +38,7 @@ st.sidebar.header("Navigation")
 page = st.sidebar.radio("Go to", [
     "Dataset Overview", "Feature Engineering", "PCA & UMAP",
     "Clustering Results", "Persona Explorer", "Business Recommendations",
+    "AI Persona Narratives", "AI Chatbot", "Churn Prediction", "Revenue Forecast",
 ])
 
 if page == "Dataset Overview":
@@ -159,6 +160,97 @@ elif page == "Persona Explorer":
     ax.set_title(f"Customers Matching: {persona}")
     st.pyplot(fig)
 
+elif page == "AI Persona Narratives":
+    st.header("AI Persona Narratives")
+    st.markdown("Let AI write detailed marketing descriptions for each customer segment.")
+    if st.button("Generate All Narratives"):
+        with st.spinner("Generating narratives with LLM..."):
+            from src.llm import llm_client
+            for persona in list(PERSONA_MAP.values()):
+                avg = df[df["Persona"] == persona][feat_cols].mean().round(2)
+                profile = avg.to_dict()
+                result = llm_client.generate_narrative(persona, str(profile))
+                with st.expander(f"**{persona}**"):
+                    st.write(result["narrative"])
+                    if result.get("model_used"):
+                        st.caption(f"Model: {result['model_used']}")
+
+elif page == "AI Chatbot":
+    st.header("AI Chatbot")
+    st.markdown("Ask questions about your customers in plain English.")
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+    query = st.chat_input("Ask a question (e.g. 'Which persona has the highest return rate?')")
+    if query:
+        st.chat_message("user").write(query)
+        with st.spinner("Thinking..."):
+            from src.rag import rag_chatbot
+            if not rag_chatbot._initialized:
+                rag_chatbot.initialize()
+            result = rag_chatbot.query(query)
+        answer = result["answer"]
+        sources = result.get("sources", [])
+        if sources:
+            answer += "\n\n**Sources:**\n" + "\n".join(f"- {s}" for s in sources)
+        st.chat_message("assistant").write(answer)
+        st.session_state.chat_history.append({"role": "user", "content": query})
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+elif page == "Churn Prediction":
+    st.header("Churn Prediction")
+    st.markdown("Predict which customers are at risk of leaving.")
+    col1, col2 = st.columns(2)
+    with col1:
+        recency = st.number_input("Recency (days since last purchase)", min_value=0, value=30)
+        frequency = st.number_input("Frequency (total orders)", min_value=1, value=5)
+        monetary = st.number_input("Monetary (total spent)", min_value=0.0, value=200.0)
+    with col2:
+        basket = st.number_input("Avg Basket Size", min_value=0.0, value=50.0)
+        discount = st.slider("Discount Usage (0-1)", 0.0, 1.0, 0.2)
+        returns = st.slider("Return Rate (0-1)", 0.0, 1.0, 0.1)
+    if st.button("Predict Churn"):
+        with st.spinner("Predicting..."):
+            from src.churn import predict_churn
+            result = predict_churn({
+                "Recency": recency, "Frequency": frequency,
+                "Monetary": monetary, "AvgBasketSize": basket,
+                "DiscountUsage": discount, "ReturnRate": returns,
+            })
+            prob = result["churn_probability"]
+            risk = result["churn_risk"]
+            st.metric("Churn Probability", f"{prob:.1%}")
+            st.info(f"Risk Level: **{risk}**")
+            if result.get("top_factors"):
+                st.markdown("**Top risk factors:**")
+                for r in result["top_factors"]:
+                    st.write(f"- {r['feature']} (importance: {r['importance']:.3f})")
+
+elif page == "Revenue Forecast":
+    st.header("Revenue Forecast")
+    st.markdown("Predict revenue for next 3 months per persona.")
+    persona_f = st.selectbox("Select Persona", ["All"] + list(PERSONA_MAP.values()))
+    if st.button("Generate Forecast"):
+        with st.spinner("Running Prophet forecast..."):
+            from src.forecast import prepare_time_series, forecast_persona
+            raw = pd.read_csv("data/raw/transactions.csv", parse_dates=["InvoiceDate"])
+            raw["Persona"] = raw["CustomerID"].map(df.set_index("CustomerID")["Persona"])
+            series = prepare_time_series(raw)
+            for persona, monthly in series.items():
+                if persona_f != "All" and persona != persona_f:
+                    continue
+                result = forecast_persona(monthly, periods=3)
+                total = sum(r["predicted_value"] for r in result)
+                st.subheader(f"**{persona}**")
+                st.metric("Predicted Revenue (3 months)", f"${total:.0f}")
+                if result:
+                    chart = pd.DataFrame([{"Date": r["date"], "Revenue": r["predicted_value"]} for r in result])
+                    st.line_chart(chart.set_index("Date"))
+                    if result[0].get("lower_bound"):
+                        st.write(f"Range: ${result[0]['lower_bound']:.0f} — ${result[-1]['upper_bound']:.0f}")
+
 else:
     st.header("Business Recommendations")
     st.markdown("Targeted recommendations for each persona based on behavioral analysis.")
@@ -178,5 +270,5 @@ else:
                 st.download_button(
                     label=f"Download {fname.name}",
                     data=f, file_name=fname.name,
-                    mime="application/pdf" if fname.suffix == ".pdf" else "text/csv",
+                    mime="application/pdf" if fname.suffix == ".pdf" else "text/plain",
                 )
