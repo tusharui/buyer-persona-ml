@@ -52,8 +52,9 @@ PREDICTION_CACHE_TTL = int(os.getenv("PREDICTION_CACHE_TTL", "86400"))
 FEATURE_CACHE_TTL = int(os.getenv("FEATURE_CACHE_TTL", "3600"))
 
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.openai.com/v1")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.groq.com/openai/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "buyer-persona-transactions")
